@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -24,6 +25,9 @@ type FolderList struct {
 
 	mu      sync.Mutex
 	folders map[string]*TLF
+
+	muRecentlyRemoved sync.RWMutex
+	recentlyRemoved   map[libkbfs.CanonicalTlfName]bool
 }
 
 var _ fs.Node = (*FolderList)(nil)
@@ -52,10 +56,42 @@ func (fl *FolderList) reportErr(ctx context.Context,
 	fl.fs.errLog.CDebugf(ctx, err.Error())
 }
 
+func (fl *FolderList) addToRecentlyRemoved(name libkbfs.CanonicalTlfName) {
+	func() {
+		fl.muRecentlyRemoved.Lock()
+		defer fl.muRecentlyRemoved.Unlock()
+		if fl.recentlyRemoved == nil {
+			fl.recentlyRemoved = make(map[libkbfs.CanonicalTlfName]bool)
+		}
+		fl.recentlyRemoved[name] = true
+	}()
+	fl.fs.execAfterDelay(time.Second, func() {
+		fl.muRecentlyRemoved.Lock()
+		defer fl.muRecentlyRemoved.Unlock()
+		delete(fl.recentlyRemoved, name)
+	})
+}
+
+func (fl *FolderList) isRecentlyRemoved(name libkbfs.CanonicalTlfName) bool {
+	fl.muRecentlyRemoved.RLock()
+	defer fl.muRecentlyRemoved.RUnlock()
+	return fl.recentlyRemoved != nil && fl.recentlyRemoved[name]
+}
+
 func (fl *FolderList) addToFavorite(ctx context.Context, h *libkbfs.TlfHandle) (err error) {
 	cName := h.GetCanonicalName()
-	fl.fs.log.CDebugf(ctx, "adding %s to favorites", cName)
-	fl.fs.config.KBFSOps().AddFavorite(ctx, h.ToFavorite())
+
+	// `rmdir` command on macOS does a lookup after removing the dir. if the
+	// TLF is recently removed, it's likely that this lookup is issued by the
+	// `rmdir` command, and the lookup should not result in adding the dir to
+	// favorites.
+	if !fl.isRecentlyRemoved(cName) {
+		fl.fs.log.CDebugf(ctx, "adding %s to favorites", cName)
+		fl.fs.config.KBFSOps().AddFavorite(ctx, h.ToFavorite())
+	} else {
+		fl.fs.log.CDebugf(ctx, "recently removed; will skip adding %s to favorites and return ENOENT", cName)
+		return fuse.ENOENT
+	}
 	return nil
 }
 

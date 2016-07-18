@@ -44,6 +44,9 @@ func makeFS(t testing.TB, config *libkbfs.ConfigLocal) (
 		errLog:        log,
 		notifications: libfs.NewFSNotifications(log),
 	}
+	filesys.execAfterDelay = func(d time.Duration, f func()) {
+		time.AfterFunc(d, f)
+	}
 	fn := func(mnt *fstestutil.Mount) fs.FS {
 		filesys.fuse = mnt.Server
 		filesys.conn = mnt.Conn
@@ -333,7 +336,13 @@ func TestReaddirPrivate(t *testing.T) {
 func TestReaddirPrivateDeleteAndReaddFavorite(t *testing.T) {
 	config := libkbfs.MakeTestConfigOrBust(t, "jdoe", "janedoe")
 	defer libkbfs.CheckConfigAndShutdown(t, config)
-	mnt, _, cancelFn := makeFS(t, config)
+	mnt, fs, cancelFn := makeFS(t, config)
+	fs.execAfterDelay = func(d time.Duration, f func()) {
+		// this causes the entry added to fl.recentlyRemoved (in
+		// addToRecentlyRemove) to be removed instantly. this way we can avoid
+		// adding delays in tests.
+		f()
+	}
 	defer mnt.Close()
 	defer cancelFn()
 
@@ -1000,6 +1009,36 @@ func TestRemoveFile(t *testing.T) {
 	if _, err := ioutil.ReadFile(p); !os.IsNotExist(err) {
 		t.Errorf("file still exists: %v", err)
 	}
+}
+
+func TestRemoveTLF(t *testing.T) {
+	config := libkbfs.MakeTestConfigOrBust(t, "jdoe", "pikachu")
+	mnt, fs, cancelFn := makeFS(t, config)
+	defer mnt.Close()
+	defer cancelFn()
+	defer libkbfs.CheckConfigAndShutdown(t, config)
+
+	fs.execAfterDelay = func(d time.Duration, f func()) {
+		// this causes the entry added to fl.recentlyRemoved (in
+		// addToRecentlyRemove) to be removed instantly. this way we can avoid
+		// adding delays in tests.
+		f()
+	}
+
+	p := path.Join(mnt.Dir, PrivateName, "jdoe,pikachu")
+	f1, err := os.Create(path.Join(p, "f"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f1.Close()
+
+	if err := syscall.Rmdir(p); err != nil {
+		t.Fatal(err)
+	}
+
+	checkDir(t, path.Join(mnt.Dir, PrivateName), map[string]fileInfoCheck{
+		"jdoe": nil,
+	})
 }
 
 func TestRemoveDir(t *testing.T) {
