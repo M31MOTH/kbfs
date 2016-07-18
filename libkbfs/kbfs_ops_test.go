@@ -1294,9 +1294,9 @@ func testCreateEntrySuccess(t *testing.T, entryType EntryType) {
 	var err error
 	switch entryType {
 	case File:
-		newN, _, err = config.KBFSOps().CreateFile(ctx, n, "b", false, NoEXCL)
+		newN, _, err = config.KBFSOps().CreateFile(ctx, n, "b", false, NoExcl)
 	case Exec:
-		newN, _, err = config.KBFSOps().CreateFile(ctx, n, "b", true, NoEXCL)
+		newN, _, err = config.KBFSOps().CreateFile(ctx, n, "b", true, NoExcl)
 	case Dir:
 		newN, _, err = config.KBFSOps().CreateDir(ctx, n, "b")
 	case Sym:
@@ -1529,9 +1529,9 @@ func testCreateEntryFailKBFSPrefix(t *testing.T, et EntryType) {
 	case Sym:
 		_, err = config.KBFSOps().CreateLink(ctx, n, name, "a")
 	case Exec:
-		_, _, err = config.KBFSOps().CreateFile(ctx, n, name, true, NoEXCL)
+		_, _, err = config.KBFSOps().CreateFile(ctx, n, name, true, NoExcl)
 	case File:
-		_, _, err = config.KBFSOps().CreateFile(ctx, n, name, false, NoEXCL)
+		_, _, err = config.KBFSOps().CreateFile(ctx, n, name, false, NoExcl)
 	}
 	if err == nil {
 		t.Errorf("Got no expected error on create")
@@ -5211,7 +5211,7 @@ func TestKBFSOpsWriteRenameStat(t *testing.T) {
 	rootNode := GetRootNodeOrBust(t, config, "test_user", false)
 
 	kbfsOps := config.KBFSOps()
-	fileNode, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoEXCL)
+	fileNode, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoExcl)
 	if err != nil {
 		t.Fatalf("Couldn't create file: %v", err)
 	}
@@ -5256,7 +5256,7 @@ func TestKBFSOpsWriteRenameGetDirChildren(t *testing.T) {
 	rootNode := GetRootNodeOrBust(t, config, "test_user", false)
 
 	kbfsOps := config.KBFSOps()
-	fileNode, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoEXCL)
+	fileNode, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoExcl)
 	if err != nil {
 		t.Fatalf("Couldn't create file: %v", err)
 	}
@@ -5302,7 +5302,7 @@ func TestKBFSOpsCreateFileWithArchivedBlock(t *testing.T) {
 	rootNode := GetRootNodeOrBust(t, config, "test_user", false)
 
 	kbfsOps := config.KBFSOps()
-	_, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoEXCL)
+	_, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoExcl)
 	if err != nil {
 		t.Fatalf("Couldn't create file: %v", err)
 	}
@@ -5322,7 +5322,7 @@ func TestKBFSOpsCreateFileWithArchivedBlock(t *testing.T) {
 	// Create a second file, which will use the same initial block ID
 	// from the cache, even though it's been archived, and will be
 	// forced to try again.
-	_, _, err = kbfsOps.CreateFile(ctx, rootNode, "b", false, NoEXCL)
+	_, _, err = kbfsOps.CreateFile(ctx, rootNode, "b", false, NoExcl)
 	if err != nil {
 		t.Fatalf("Couldn't create second file: %v", err)
 	}
@@ -5340,7 +5340,7 @@ func TestKBFSOpsMultiBlockSyncWithArchivedBlock(t *testing.T) {
 	rootNode := GetRootNodeOrBust(t, config, "test_user", false)
 
 	kbfsOps := config.KBFSOps()
-	fileNode, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoEXCL)
+	fileNode, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoExcl)
 	if err != nil {
 		t.Fatalf("Couldn't create file: %v", err)
 	}
@@ -5412,7 +5412,7 @@ func TestKBFSOpsFailToReadUnverifiableBlock(t *testing.T) {
 	rootNode := GetRootNodeOrBust(t, config, "test_user", false)
 
 	kbfsOps := config.KBFSOps()
-	_, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoEXCL)
+	_, _, err := kbfsOps.CreateFile(ctx, rootNode, "a", false, NoExcl)
 	if err != nil {
 		t.Fatalf("Couldn't create file: %v", err)
 	}
@@ -5472,7 +5472,7 @@ func TestKBFSOpsMaliciousMDServerRange(t *testing.T) {
 
 	kbfsOps1 := config1.KBFSOps()
 
-	_, _, err := kbfsOps1.CreateFile(ctx, rootNode1, "dummy.txt", false, NoEXCL)
+	_, _, err := kbfsOps1.CreateFile(ctx, rootNode1, "dummy.txt", false, NoExcl)
 	require.NoError(t, err)
 
 	// Create mallory's fake TLF using the same TLF ID as alice's.
@@ -5493,7 +5493,7 @@ func TestKBFSOpsMaliciousMDServerRange(t *testing.T) {
 	// Add some operations to get mallory's TLF to have a higher
 	// MetadataVersion.
 	_, _, err = kbfsOps2.CreateFile(
-		ctx, rootNode2, "dummy.txt", false, NoEXCL)
+		ctx, rootNode2, "dummy.txt", false, NoExcl)
 	require.NoError(t, err)
 	err = kbfsOps2.RemoveEntry(ctx, rootNode2, "dummy.txt")
 	require.NoError(t, err)

@@ -1000,7 +1000,9 @@ func TestCrCreateFileEXCLOnStaged(t *testing.T) {
 	)
 }
 
-// alice and bob both exclusively create the same file, but neither write to it.
+// alice and bob both exclusively create the same file, but neither write to
+// it. Since the creates are exclusive, only the winning one (alice) should
+// succeed.
 func TestCrBothCreateFileEXCL(t *testing.T) {
 	test(t,
 		users("alice", "bob"),
@@ -1024,7 +1026,10 @@ func TestCrBothCreateFileEXCL(t *testing.T) {
 	)
 }
 
-// alice and bob both exclusively create the same file, but neither write to it.
+// alice and bob both exclusively create the same file, but neither write to
+// it. This test is run in parallel. Bob's exclusive create is stalled on MD's
+// Put. After stall happens, alice creates the file. This makes sure Alice's
+// exclusive create happens precisely before Bob's MD Put.
 func TestCrBothCreateFileEXCLParallel(t *testing.T) {
 	test(t,
 		users("alice", "bob"),
