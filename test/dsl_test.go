@@ -697,7 +697,7 @@ func (c *ctx) getNode(filepath string, create createType, sym symBehavior) (
 			switch {
 			case err == nil:
 				if create == createFileExcl {
-					return libkbfs.NameExistsError{}
+					return nil, false, libkbfs.NameExistsError{}
 				}
 			case create == createFileExcl:
 				c.t.Log("getNode: CreateFileExcl")

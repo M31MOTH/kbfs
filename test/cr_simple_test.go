@@ -983,7 +983,7 @@ func TestCrCreateFileExclOnStaged(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		skipOp = skip("fuse", "osxfuse doesn't pass through O_EXCL yet")
 	} else {
-		skipOp = custom(func(f fileOp) error { return nil })
+		skipOp = func(c *opt) {}
 	}
 	test(t,
 		skipOp,
@@ -1016,7 +1016,7 @@ func TestCrBothCreateFileExcl(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		skipOp = skip("fuse", "osxfuse doesn't pass through O_EXCL yet")
 	} else {
-		skipOp = custom(func(f fileOp) error { return nil })
+		skipOp = func(c *opt) {}
 	}
 	test(t,
 		skipOp,
@@ -1050,7 +1050,7 @@ func TestCrBothCreateFileExclParallel(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		skipOp = skip("fuse", "osxfuse doesn't pass through O_EXCL yet")
 	} else {
-		skipOp = custom(func(f fileOp) error { return nil })
+		skipOp = func(c *opt) {}
 	}
 	test(t,
 		skipOp,
