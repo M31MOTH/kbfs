@@ -259,6 +259,9 @@ func noSync() fileOp {
 func (o *opt) expectSuccess(reason string, err error) {
 	if err != nil {
 		if o.isParallel {
+			// FailNow/Fatalf can only be called from the goroutine running the Test
+			// function. In parallel tests, this is not always true. So we use Errorf
+			// to mark the test as failed without an implicit FailNow.
 			o.t.Errorf("Error: %s: %v", reason, err)
 		} else {
 			o.t.Fatalf("Error: %s: %v", reason, err)
@@ -694,7 +697,7 @@ func (c *ctx) getNode(filepath string, create createType, sym symBehavior) (
 			switch {
 			case err == nil:
 				if create == createFileExcl {
-					err = libkbfs.NameExistsError{}
+					return libkbfs.NameExistsError{}
 				}
 			case create == createFileExcl:
 				c.t.Log("getNode: CreateFileExcl")

@@ -2149,7 +2149,7 @@ func (fbo *folderBranchOps) createEntryLocked(
 }
 
 func (fbo *folderBranchOps) doMDWriteWithRetry(ctx context.Context,
-	lState *lockState, fn func(lState *lockState) error) error {
+	lState *lockState, waitForCR bool, fn func(lState *lockState) error) error {
 	doUnlock := false
 	defer func() {
 		if doUnlock {
@@ -2175,6 +2175,11 @@ func (fbo *folderBranchOps) doMDWriteWithRetry(ctx context.Context,
 			// Release the lock to give someone else a chance
 			doUnlock = false
 			fbo.mdWriterLock.Unlock(lState)
+			if waitForCR {
+				if err = fbo.cr.Wait(ctx); err != nil {
+					return err
+				}
+			}
 			continue
 		} else if err != nil {
 			return err
@@ -2187,7 +2192,15 @@ func (fbo *folderBranchOps) doMDWriteWithRetryUnlessCanceled(
 	ctx context.Context, fn func(lState *lockState) error) error {
 	return runUnlessCanceled(ctx, func() error {
 		lState := makeFBOLockState()
-		return fbo.doMDWriteWithRetry(ctx, lState, fn)
+		return fbo.doMDWriteWithRetry(ctx, lState, false, fn)
+	})
+}
+
+func (fbo *folderBranchOps) doMDWriteWithRetryMaybeWaitForCRUnlessCanceled(
+	ctx context.Context, waitForCR bool, fn func(lState *lockState) error) error {
+	return runUnlessCanceled(ctx, func() error {
+		lState := makeFBOLockState()
+		return fbo.doMDWriteWithRetry(ctx, lState, waitForCR, fn)
 	})
 }
 
@@ -2246,13 +2259,14 @@ func (fbo *folderBranchOps) CreateFile(
 		entryType = File
 	}
 
-	err = fbo.doMDWriteWithRetryUnlessCanceled(ctx,
-		func(lState *lockState) error {
-			if excl == WithExcl {
-				if err = fbo.cr.Wait(ctx); err != nil {
-					return err
-				}
-			}
+	if excl == WithExcl {
+		if err = fbo.cr.Wait(ctx); err != nil {
+			return nil, EntryInfo{}, err
+		}
+	}
+
+	err = fbo.doMDWriteWithRetryMaybeWaitForCRUnlessCanceled(ctx,
+		excl == WithExcl, func(lState *lockState) error {
 			node, de, err :=
 				fbo.createEntryLocked(ctx, lState, dir, path, entryType, excl)
 			n = node
@@ -3657,7 +3671,7 @@ func (fbo *folderBranchOps) UnstageForTesting(
 		fbo.log.CDebugf(freshCtx, "Launching new context for UnstageForTesting")
 		go func() {
 			lState := makeFBOLockState()
-			c <- fbo.doMDWriteWithRetry(ctx, lState,
+			c <- fbo.doMDWriteWithRetry(ctx, lState, false,
 				func(lState *lockState) error {
 					return fbo.unstageLocked(freshCtx, lState)
 				})
