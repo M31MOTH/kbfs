@@ -997,11 +997,7 @@ func (fbo *folderBranchOps) initMDLocked(
 	}
 
 	// finally, write out the new metadata
-	if err = fbo.config.MDOps().Put(ctx, md); err != nil {
-		return err
-	}
-
-	mdID, err := fbo.config.Crypto().MakeMdID(&md.BareRootMetadata)
+	mdID, err := fbo.config.MDOps().Put(ctx, md)
 	if err != nil {
 		return err
 	}
@@ -1872,10 +1868,11 @@ func (fbo *folderBranchOps) finalizeMDWriteLocked(ctx context.Context,
 	doUnmergedPut := true
 	mergedRev := MetadataRevisionUninitialized
 
+	var mdID MdID
+
 	if fbo.isMasterBranchLocked(lState) {
 		// only do a normal Put if we're not already staged.
-		err = mdops.Put(ctx, md)
-
+		mdID, err = mdops.Put(ctx, md)
 		if doUnmergedPut = fbo.isRevisionConflict(err); doUnmergedPut {
 			fbo.log.CDebugf(ctx, "Conflict: %v", err)
 			mergedRev = md.Revision
@@ -1887,7 +1884,7 @@ func (fbo *folderBranchOps) finalizeMDWriteLocked(ctx context.Context,
 
 	if doUnmergedPut {
 		// We're out of date, so put it as an unmerged MD.
-		err := mdops.PutUnmerged(ctx, md)
+		mdID, err = mdops.PutUnmerged(ctx, md)
 		bid := md.BID
 		if err != nil {
 			// TODO: if this is a conflict error, we should try to
@@ -1920,11 +1917,6 @@ func (fbo *folderBranchOps) finalizeMDWriteLocked(ctx context.Context,
 		return err
 	}
 
-	mdID, err := fbo.config.Crypto().MakeMdID(&md.BareRootMetadata)
-	if err != nil {
-		return err
-	}
-
 	fbo.headLock.Lock(lState)
 	defer fbo.headLock.Unlock(lState)
 	irmd := MakeImmutableRootMetadata(md, mdID)
@@ -1945,7 +1937,7 @@ func (fbo *folderBranchOps) finalizeMDRekeyWriteLocked(ctx context.Context,
 	fbo.mdWriterLock.AssertLocked(lState)
 
 	// finally, write out the new metadata
-	err = fbo.config.MDOps().Put(ctx, md)
+	mdID, err := fbo.config.MDOps().Put(ctx, md)
 	isConflict := fbo.isRevisionConflict(err)
 	if err != nil && !isConflict {
 		return err
@@ -1958,11 +1950,6 @@ func (fbo *folderBranchOps) finalizeMDRekeyWriteLocked(ctx context.Context,
 		// be safe as it's idempotent. we don't want any rekeys present
 		// in unmerged history or that will just make a mess.
 		fbo.config.RekeyQueue().Enqueue(md.ID)
-		return err
-	}
-
-	mdID, err := fbo.config.Crypto().MakeMdID(&md.BareRootMetadata)
-	if err != nil {
 		return err
 	}
 
@@ -2023,7 +2010,7 @@ func (fbo *folderBranchOps) finalizeGCOp(ctx context.Context, gco *gcOp) (
 	}
 
 	// finally, write out the new metadata
-	err = fbo.config.MDOps().Put(ctx, md)
+	mdID, err := fbo.config.MDOps().Put(ctx, md)
 	if err != nil {
 		// Don't allow garbage collection to put us into a conflicting
 		// state; just wait for the next period.
@@ -2032,11 +2019,6 @@ func (fbo *folderBranchOps) finalizeGCOp(ctx context.Context, gco *gcOp) (
 
 	fbo.setBranchIDLocked(lState, NullBranchID)
 	md.swapCachedBlockChanges()
-
-	mdID, err := fbo.config.Crypto().MakeMdID(&md.BareRootMetadata)
-	if err != nil {
-		return err
-	}
 
 	fbo.headLock.Lock(lState)
 	defer fbo.headLock.Unlock(lState)
@@ -4219,17 +4201,12 @@ func (fbo *folderBranchOps) finalizeResolution(ctx context.Context,
 
 	// Put the MD.  If there's a conflict, abort the whole process and
 	// let CR restart itself.
-	err = fbo.config.MDOps().Put(ctx, md)
+	mdID, err := fbo.config.MDOps().Put(ctx, md)
 	doUnmergedPut := fbo.isRevisionConflict(err)
 	if doUnmergedPut {
 		fbo.log.CDebugf(ctx, "Got a conflict after resolution; aborting CR")
 		return err
 	}
-	if err != nil {
-		return err
-	}
-
-	mdID, err := fbo.config.Crypto().MakeMdID(&md.BareRootMetadata)
 	if err != nil {
 		return err
 	}
